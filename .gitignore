@@ -4,6 +4,9 @@ __pycache__/
 models/*.safetensors
 models/*.gguf
 models/*/
+# huggingface_hub drops CACHEDIR.TAG in models/ on first download
+# (https://bford.info/cachedir/ - tells backup tools to skip cache dirs)
+CACHEDIR.TAG
 !models/.gitkeep
 outputs/*.png
 outputs/*.jpg
