@@ -11,6 +11,7 @@ CACHEDIR.TAG
 outputs/*.png
 outputs/*.jpg
 outputs/benchmark.md
+outputs/*.jsonl
 .ipynb_checkpoints/
 .idea/
 .env

@@ -80,7 +80,7 @@ A note on these numbers: cold and warm are nearly identical (46.4 s vs 45.5 s) b
    uv run python scripts/benchmark.py
    ```
 
-7. **Web UI (optional)** — Gradio app at <http://127.0.0.1:7860/> with a prompt textbox, starting-seed input, batch-size slider (1–8), and a streaming gallery. Hit Generate and images appear one-by-one as each finishes (seeds increment from your starting seed). Pipeline loads once at startup; the cold-load cost is paid on app boot, not per click:
+7. **Web UI (optional)** — Gradio app at <http://127.0.0.1:7860/> with a prompt textbox, starting-seed input, batch-size slider (1–8), and a streaming gallery. Hit Generate and images appear one-by-one as each finishes (seeds increment from your starting seed). Every generation is auto-saved to `outputs/ui_<timestamp>_seed<N>.png` with the prompt and seed embedded directly in the PNG (tEXt chunks) plus an append-only `outputs/history.jsonl` manifest line. Pipeline loads once at startup; the cold-load cost is paid on app boot, not per click:
 
    ```sh
    uv run python -m src.ui

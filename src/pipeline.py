@@ -136,4 +136,11 @@ class FluxGenerator:
         image = self.generate(prompt, seed=seed)
         elapsed = time.perf_counter() - t0
         peak_vram_gb = torch.cuda.max_memory_allocated() / (1024**3)
-        return image, {"elapsed_s": elapsed, "peak_vram_gb": peak_vram_gb}
+        # `seed` may be None at the API surface; record the value actually used
+        # so history records and CLI output always know the effective seed.
+        effective_seed = seed if seed is not None else self.config.seed
+        return image, {
+            "elapsed_s": elapsed,
+            "peak_vram_gb": peak_vram_gb,
+            "seed": effective_seed,
+        }

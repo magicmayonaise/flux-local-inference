@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.config import InferenceConfig  # noqa: E402 - intentional, see above
+from src.history import save_image_with_metadata  # noqa: E402
 from src.pipeline import FluxGenerator  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -61,8 +62,17 @@ def main() -> int:
     out_path = args.out or (config.output_dir / f"flux_{config.seed}.png")
 
     gen = FluxGenerator(config)
-    image, metrics = gen.generate_with_metrics(args.prompt)
-    image.save(out_path)
+    image, metrics = gen.generate_with_metrics(args.prompt, seed=args.seed)
+    # save_image_with_metadata embeds prompt+seed+config in PNG tEXt chunks
+    # and appends to outputs/history.jsonl. Same provenance story as the UI.
+    save_image_with_metadata(
+        image,
+        out_path,
+        prompt=args.prompt,
+        seed=metrics["seed"],
+        metrics=metrics,
+        config=config,
+    )
 
     print(
         f"saved {out_path}  "

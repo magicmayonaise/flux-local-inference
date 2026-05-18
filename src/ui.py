@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.config import InferenceConfig  # noqa: E402
+from src.history import save_image_with_metadata, ui_filename  # noqa: E402
 from src.pipeline import FluxGenerator  # noqa: E402
 
 # Loaded once at module import. Gradio's queue serialises requests so we
@@ -55,6 +56,15 @@ def infer_stream(prompt: str, base_seed: float, n_images: float):
     for i in range(n):
         seed = base + i
         img, m = _generator.generate_with_metrics(prompt, seed=seed)
+        # Persist each generation: PNG with embedded metadata + JSONL manifest line.
+        save_image_with_metadata(
+            img,
+            _config.output_dir / ui_filename(seed),
+            prompt=prompt,
+            seed=seed,
+            metrics=m,
+            config=_config,
+        )
         # Gallery accepts (image, caption) tuples - caption shows under each tile.
         images.append((img, f"seed {seed}  ·  {m['elapsed_s']:.1f}s"))
         total_elapsed += m["elapsed_s"]
