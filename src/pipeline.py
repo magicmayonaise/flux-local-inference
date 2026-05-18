@@ -79,6 +79,62 @@ class FluxGenerator:
 
         self.pipe = pipe
 
+        # 6) Optional LoRA. Diffusers documents loading LoRAs AFTER offload
+        #    enable; the adapter weights then get the same offload hooks as
+        #    the base modules they patch.
+        # active_lora is (repo, scale) so swap_lora() can compare and no-op
+        # when the same LoRA is requested at the same scale.
+        self.active_lora: Optional[tuple[str, float]] = None
+        if config.lora_repo:
+            self._apply_lora(config.lora_repo, config.lora_scale)
+
+    def _apply_lora(self, repo: str, scale: float) -> None:
+        """Load and activate a single LoRA. Raises ValueError with a clear
+        message if the LoRA isn't compatible with FLUX (the most common
+        failure mode is loading an SDXL or FLUX-dev LoRA that schnell's
+        transformer rejects).
+        """
+        try:
+            self.pipe.load_lora_weights(
+                repo,
+                adapter_name="active",
+                cache_dir=str(self.config.lora_cache_dir),
+            )
+            self.pipe.set_adapters(["active"], adapter_weights=[scale])
+            self.active_lora = (repo, scale)
+            logger.info("Loaded LoRA %s @ scale=%.2f", repo, scale)
+        except Exception as e:  # noqa: BLE001
+            raise ValueError(
+                f"Failed to load LoRA {repo!r}: {e}. "
+                "Most public FLUX LoRAs are trained for FLUX-dev and may not "
+                "load on schnell. Check the LoRA's model card on Hugging Face."
+            ) from e
+
+    def swap_lora(self, repo: Optional[str], scale: float = 1.0) -> None:
+        """Public API used by the UI: change the active LoRA, or remove it.
+
+        repo == None       -> unload current LoRA (back to base model)
+        repo == active     -> no-op if scale unchanged; update scale otherwise
+        repo == something  -> unload current (if any) and load the new one
+        """
+        if repo is None:
+            if self.active_lora is not None:
+                self.pipe.unload_lora_weights()
+                self.active_lora = None
+            return
+
+        current = self.active_lora
+        if current and current[0] == repo:
+            if current[1] != scale:
+                self.pipe.set_adapters(["active"], adapter_weights=[scale])
+                self.active_lora = (repo, scale)
+            return
+
+        if self.active_lora is not None:
+            self.pipe.unload_lora_weights()
+            self.active_lora = None
+        self._apply_lora(repo, scale)
+
     def generate(
         self,
         prompt: str,
@@ -143,4 +199,7 @@ class FluxGenerator:
             "elapsed_s": elapsed,
             "peak_vram_gb": peak_vram_gb,
             "seed": effective_seed,
+            # active_lora is (repo, scale) or None; surface both for history/UI.
+            "lora_repo": self.active_lora[0] if self.active_lora else None,
+            "lora_scale": self.active_lora[1] if self.active_lora else None,
         }

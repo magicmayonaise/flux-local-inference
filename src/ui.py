@@ -33,12 +33,23 @@ _config = InferenceConfig()
 _generator = FluxGenerator(_config)
 
 
-def infer_stream(prompt: str, base_seed: float, n_images: float):
+def infer_stream(
+    prompt: str,
+    base_seed: float,
+    n_images: float,
+    lora_repo: str,
+    lora_scale: float,
+):
     """Generator: yields (gallery_items, status_md) as each image finishes.
 
     Gradio recognises generator functions and pipes each yield into the
     bound outputs - this is what gives the streaming UI feel without any
     explicit websockets / async on our side.
+
+    LoRA handling: if lora_repo differs from the currently active LoRA
+    on the pipeline, we swap before generating. Empty string == no LoRA.
+    First generation after a LoRA change pays a one-off load cost (the
+    LoRA weights are small but rom_pretrained-style work still happens).
     """
     prompt = (prompt or "").strip()
     if not prompt:
@@ -51,7 +62,17 @@ def infer_stream(prompt: str, base_seed: float, n_images: float):
     total_elapsed = 0.0
     peak_vram_max = 0.0
 
-    yield images, f"Starting **{n}** generation{'s' if n > 1 else ''}…"
+    requested_lora = (lora_repo or "").strip() or None
+    try:
+        _generator.swap_lora(requested_lora, scale=float(lora_scale))
+    except ValueError as e:
+        yield images, f"**LoRA load failed:** {e}"
+        return
+    lora_tag = (
+        f"  ·  **LoRA:** {requested_lora}@{lora_scale:.2f}" if requested_lora else ""
+    )
+
+    yield images, f"Starting **{n}** generation{'s' if n > 1 else ''}…{lora_tag}"
 
     for i in range(n):
         seed = base + i
@@ -75,7 +96,7 @@ def infer_stream(prompt: str, base_seed: float, n_images: float):
             f"**Peak VRAM:** {peak_vram_max:.2f} GB  ·  "
             f"**Seeds:** {base}..{base + i}  ·  "
             f"**Resolution:** {_config.width}×{_config.height}  ·  "
-            f"**Steps:** {_config.num_inference_steps}"
+            f"**Steps:** {_config.num_inference_steps}{lora_tag}"
         )
         yield images, status
 
@@ -112,6 +133,23 @@ with gr.Blocks(title="flux-local-inference") as demo:
                     value=4,
                     step=1,
                 )
+            gr.Markdown(
+                "_Optional LoRA. Most public FLUX LoRAs target FLUX-dev; "
+                "compatibility with schnell varies._"
+            )
+            with gr.Row():
+                lora_box = gr.Textbox(
+                    label="LoRA (HF repo or local path)",
+                    placeholder="e.g. alimama-creative/FLUX.1-Turbo-Alpha",
+                    value="",
+                )
+                lora_scale_slider = gr.Slider(
+                    label="LoRA scale",
+                    minimum=0.0,
+                    maximum=2.0,
+                    value=_config.lora_scale,
+                    step=0.05,
+                )
             go = gr.Button("Generate", variant="primary")
         with gr.Column(scale=1):
             gallery = gr.Gallery(
@@ -124,13 +162,13 @@ with gr.Blocks(title="flux-local-inference") as demo:
 
     go.click(
         infer_stream,
-        inputs=[prompt_box, seed_box, n_slider],
+        inputs=[prompt_box, seed_box, n_slider, lora_box, lora_scale_slider],
         outputs=[gallery, info_md],
     )
     # Enter inside the textbox also submits.
     prompt_box.submit(
         infer_stream,
-        inputs=[prompt_box, seed_box, n_slider],
+        inputs=[prompt_box, seed_box, n_slider, lora_box, lora_scale_slider],
         outputs=[gallery, info_md],
     )
 

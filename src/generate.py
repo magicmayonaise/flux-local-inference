@@ -39,6 +39,20 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=None, help="Override config seed.")
     p.add_argument("--height", type=int, default=None, help="Multiple of 16.")
     p.add_argument("--width", type=int, default=None, help="Multiple of 16.")
+    p.add_argument(
+        "--lora",
+        type=str,
+        default=None,
+        dest="lora_repo",
+        help="HuggingFace repo ID or local path to a FLUX LoRA. "
+        "Most public LoRAs target FLUX-dev; compatibility with schnell varies.",
+    )
+    p.add_argument(
+        "--lora-scale",
+        type=float,
+        default=None,
+        help="LoRA strength multiplier (default: 1.0). 0 = off, >1 = over-applied.",
+    )
     return p.parse_args()
 
 
@@ -53,6 +67,8 @@ def main() -> int:
             "seed": args.seed,
             "height": args.height,
             "width": args.width,
+            "lora_repo": args.lora_repo,
+            "lora_scale": args.lora_scale,
         }.items()
         if v is not None
     }

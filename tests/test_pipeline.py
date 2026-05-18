@@ -30,6 +30,10 @@ class _StubPipe:
         )
         self.enable_model_cpu_offload = self._make_recorder("enable_model_cpu_offload")
         self.to = self._make_recorder("to")
+        # LoRA hooks - present so tests covering the LoRA path can record calls.
+        self.load_lora_weights = self._make_recorder("load_lora_weights")
+        self.set_adapters = self._make_recorder("set_adapters")
+        self.unload_lora_weights = self._make_recorder("unload_lora_weights")
 
     def _make_recorder(self, name):
         def recorder(*args, **kwargs):
@@ -91,3 +95,81 @@ def test_init_does_not_call_pipe_to_cuda(stub_pipe):
     # The single positional arg should be a torch.dtype, not "cuda".
     assert args and isinstance(args[0], torch.dtype)
     assert args[0] == torch.float16, "Turing wants fp16 compute, got something else"
+
+
+def test_lora_not_loaded_when_repo_is_none(stub_pipe):
+    """Default config has lora_repo=None - no LoRA calls should happen."""
+    from src.pipeline import FluxGenerator
+
+    gen = FluxGenerator(InferenceConfig())
+    names = [c[0] for c in stub_pipe.calls]
+    assert "load_lora_weights" not in names
+    assert "set_adapters" not in names
+    assert gen.active_lora is None
+
+
+def test_lora_loaded_after_dtype_cast_when_configured(stub_pipe):
+    """When lora_repo is set, it must be loaded AFTER the fp16 cast so the
+    adapter gets the same dtype as the base modules. Order check.
+    """
+    from dataclasses import replace
+
+    from src.pipeline import FluxGenerator
+
+    cfg = replace(InferenceConfig(), lora_repo="foo/bar-lora", lora_scale=0.7)
+    gen = FluxGenerator(cfg)
+
+    names = [c[0] for c in stub_pipe.calls]
+    assert "load_lora_weights" in names
+    assert "set_adapters" in names
+    assert names.index("to") < names.index("load_lora_weights")
+    assert gen.active_lora == ("foo/bar-lora", 0.7)
+
+
+def test_swap_lora_unloads_existing_when_changing(stub_pipe):
+    """swap_lora to a different repo should unload old + load new."""
+    from dataclasses import replace
+
+    from src.pipeline import FluxGenerator
+
+    cfg = replace(InferenceConfig(), lora_repo="a/lora-1", lora_scale=1.0)
+    gen = FluxGenerator(cfg)
+    stub_pipe.calls.clear()
+
+    gen.swap_lora("b/lora-2", scale=0.5)
+    names = [c[0] for c in stub_pipe.calls]
+    assert names.index("unload_lora_weights") < names.index("load_lora_weights")
+    assert gen.active_lora == ("b/lora-2", 0.5)
+
+
+def test_swap_lora_to_none_unloads(stub_pipe):
+    from dataclasses import replace
+
+    from src.pipeline import FluxGenerator
+
+    cfg = replace(InferenceConfig(), lora_repo="a/lora-1", lora_scale=1.0)
+    gen = FluxGenerator(cfg)
+    stub_pipe.calls.clear()
+
+    gen.swap_lora(None)
+    names = [c[0] for c in stub_pipe.calls]
+    assert "unload_lora_weights" in names
+    assert "load_lora_weights" not in names
+    assert gen.active_lora is None
+
+
+def test_swap_lora_same_repo_different_scale_just_updates_scale(stub_pipe):
+    from dataclasses import replace
+
+    from src.pipeline import FluxGenerator
+
+    cfg = replace(InferenceConfig(), lora_repo="a/lora-1", lora_scale=1.0)
+    gen = FluxGenerator(cfg)
+    stub_pipe.calls.clear()
+
+    gen.swap_lora("a/lora-1", scale=0.3)
+    names = [c[0] for c in stub_pipe.calls]
+    assert "unload_lora_weights" not in names
+    assert "load_lora_weights" not in names
+    assert "set_adapters" in names
+    assert gen.active_lora == ("a/lora-1", 0.3)

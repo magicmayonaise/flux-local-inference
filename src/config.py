@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 # Repo root resolved from this file, not cwd, so the same paths work whether
 # the user invokes via `python -m src.generate` or from a notebook.
@@ -64,6 +64,16 @@ class InferenceConfig:
 
     # VAE slicing/tiling trade a small compute cost for a meaningful VRAM
     # reduction during decode. Both are required on 8 GB at 1360-wide.
+    # Optional LoRA. None = base model only. Compatibility caveat: most public
+    # FLUX LoRAs are trained for FLUX-dev; some work on schnell with degraded
+    # quality at 4 steps, some don't load at all. The neuro-imagery LoRA in the
+    # README's Future work section is the right long-term answer.
+    lora_repo: Optional[str] = None
+    # 0 == lora off; 1.0 == full strength; >1.0 == over-application.
+    lora_scale: float = 1.0
+    # Cache dir for downloaded LoRA weights. Gitignored.
+    lora_cache_dir: Path = field(default_factory=lambda: ROOT / "models" / "loras")
+
     enable_vae_slicing: bool = True
     enable_vae_tiling: bool = True
 
@@ -73,8 +83,8 @@ class InferenceConfig:
     offload_strategy: Literal["sequential", "model", "none"] = "sequential"
 
     def __post_init__(self) -> None:
-        # output_dir must exist before generate() writes to it; cache_dir
-        # is created by huggingface_hub on first download.
+        # output_dir must exist before generate() writes to it; main cache_dir
+        # and lora_cache_dir are created lazily by huggingface_hub on download.
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # FLUX uses a patchify factor of 16 for the transformer; non-multiple

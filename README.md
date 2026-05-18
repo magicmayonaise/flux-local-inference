@@ -68,10 +68,15 @@ A note on these numbers: cold and warm are nearly identical (46.4 s vs 45.5 s) b
    uv run python scripts/smoke_test.py
    ```
 
-5. **Generate** — the CLI:
+5. **Generate** — the CLI, optionally with a LoRA via `--lora REPO --lora-scale FLOAT`:
 
    ```sh
    uv run python -m src.generate --prompt "a coronal section of mouse hippocampus, brightfield microscopy"
+
+   # with a LoRA (compatibility with schnell varies; see Limitations):
+   uv run python -m src.generate \
+     --prompt "a futuristic city, anime style" \
+     --lora alimama-creative/FLUX.1-Turbo-Alpha --lora-scale 0.8
    ```
 
 6. **Benchmark** — three generations at default config; writes `outputs/benchmark.md`:
@@ -80,7 +85,7 @@ A note on these numbers: cold and warm are nearly identical (46.4 s vs 45.5 s) b
    uv run python scripts/benchmark.py
    ```
 
-7. **Web UI (optional)** — Gradio app at <http://127.0.0.1:7860/> with a prompt textbox, starting-seed input, batch-size slider (1–8), and a streaming gallery. Hit Generate and images appear one-by-one as each finishes (seeds increment from your starting seed). Every generation is auto-saved to `outputs/ui_<timestamp>_seed<N>.png` with the prompt and seed embedded directly in the PNG (tEXt chunks) plus an append-only `outputs/history.jsonl` manifest line. Pipeline loads once at startup; the cold-load cost is paid on app boot, not per click:
+7. **Web UI (optional)** — Gradio app at <http://127.0.0.1:7860/> with a prompt textbox, starting-seed input, batch-size slider (1–8), LoRA textbox + scale slider, and a streaming gallery. Hit Generate and images appear one-by-one as each finishes (seeds increment from your starting seed). Every generation is auto-saved to `outputs/ui_<timestamp>_seed<N>.png` with the prompt and seed embedded directly in the PNG (tEXt chunks) plus an append-only `outputs/history.jsonl` manifest line. Pipeline loads once at startup; the cold-load cost is paid on app boot, not per click:
 
    ```sh
    uv run python -m src.ui
@@ -100,7 +105,7 @@ The single non-obvious design decision is in `src/pipeline.py`: the order of `fr
 
 - **Throughput is bad and that's fine.** Warm generation on this hardware is ~60–90 s/image. A 4090 would be 8–10×. For a portfolio piece this is *the point* — the engineering is in making 8 GB work at all, not in beating the wall-clock of a real workstation.
 - **bf16 emulation is wasted compute.** Loading in bf16 then casting to fp16 means we briefly hold both copies in CPU RAM during the cast. On a 64 GB host that's invisible; on a 16 GB laptop it would matter. I could load directly in fp16 to skip the cast, at the cost of a non-bit-identical checkpoint — I chose the bit-identical path for reproducibility.
-- **No LoRA support.** The pipeline is intentionally barebones — adding LoRA is a 30-line change but I left it out to keep the surface area honest with what I've actually tested.
+- **LoRA support is off-the-shelf, not custom.** The pipeline supports loading a single LoRA via the CLI (`--lora REPO --lora-scale FLOAT`) or the UI textbox. Most public FLUX LoRAs target FLUX-dev and have variable compatibility with schnell at 4 steps — quality ranges from clean to garbage. Training a custom LoRA on neuro imagery (Future work, below) is the right answer if I want guaranteed-quality behaviour.
 - **VAE tiling visible at low resolutions.** At 512×512 with both slicing and tiling on, you can occasionally see seams in flat-coloured regions. The default 768×1360 hides this; the smoke test runs at 512 anyway, where the goal is "valid PNG" not "good image".
 - **CPU offload latency is PCIe-bound.** On a Gen3 x16 slot, ~16 GB/s effective. A Gen4 board would not change the VRAM footprint but would cut the per-step overhead roughly in half. I can't test this; if you're reviewing this on a Gen4 system, expect numbers to improve over what's in the table.
 
