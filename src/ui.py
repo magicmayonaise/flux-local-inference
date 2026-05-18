@@ -49,7 +49,7 @@ def infer(prompt: str, seed: float) -> tuple:
     return image, info
 
 
-with gr.Blocks(title="flux-local-inference", theme=gr.themes.Soft()) as demo:
+with gr.Blocks(title="flux-local-inference") as demo:
     gr.Markdown(
         "# flux-local-inference\n"
         "FLUX.1 [schnell] running locally on an 8 GB RTX 2070. "
@@ -66,7 +66,6 @@ with gr.Blocks(title="flux-local-inference", theme=gr.themes.Soft()) as demo:
                     "pyramidal neurons expressing GFP, dendritic spines visible"
                 ),
                 lines=4,
-                show_copy_button=True,
             )
             seed_box = gr.Number(
                 label="Seed",
@@ -100,4 +99,5 @@ if __name__ == "__main__":
         server_port=7860,
         inbrowser=True,
         show_error=True,
+        theme=gr.themes.Soft(),
     )
