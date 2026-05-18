@@ -126,10 +126,15 @@ with gr.Blocks(title="flux-local-inference") as demo:
 
 
 if __name__ == "__main__":
-    # 127.0.0.1 (not 0.0.0.0) so the UI is only reachable from this machine.
+    # 0.0.0.0 binds to every interface inside the WSL2 VM. That's what lets the
+    # Windows host reach http://127.0.0.1:7860/ through WSL's automatic localhost
+    # forwarding - binding to 127.0.0.1 inside WSL means "WSL-internal only" and
+    # Windows-localhost can't reach it reliably. Windows Defender Firewall still
+    # blocks inbound LAN traffic by default, so this stays a localhost-only UI
+    # from the user's perspective.
     # inbrowser=True opens the system default browser at the right URL.
     demo.queue().launch(
-        server_name="127.0.0.1",
+        server_name="0.0.0.0",
         server_port=7860,
         inbrowser=True,
         show_error=True,
