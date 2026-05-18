@@ -1,5 +1,11 @@
 # flux-local-inference
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10](https://img.shields.io/badge/Python-3.10-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3100/)
+[![PyTorch 2.5+cu121](https://img.shields.io/badge/PyTorch-2.5%2Bcu121-EE4C2C.svg?logo=pytorch&logoColor=white)](https://pytorch.org)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Tested on RTX 2070](https://img.shields.io/badge/Tested%20on-RTX%202070-76B900.svg?logo=nvidia&logoColor=white)](#hardware-tested)
+
 A reproducible local inference pipeline for [FLUX.1 [schnell]](https://huggingface.co/black-forest-labs/FLUX.1-schnell) on consumer hardware, built as part of a transition from a neuroscience PhD into ML engineering. The repo is small on purpose — it is meant to demonstrate clean engineering practice (configuration discipline, pre-flight checks, mock-tested pipeline init, atomic commits) on a problem with real constraints (an 8 GB Turing GPU, no native bf16, no FP8), rather than to be a feature-rich product.
 
 ## Why FLUX.1 [schnell]
