@@ -80,6 +80,12 @@ A note on these numbers: cold and warm are nearly identical (46.4 s vs 45.5 s) b
    uv run python scripts/benchmark.py
    ```
 
+7. **Web UI (optional)** — Gradio app at <http://127.0.0.1:7860/> with a prompt textbox, seed input, and live metrics. Pipeline loads once at startup; the cold-load cost is paid on app boot, not per click:
+
+   ```sh
+   uv run python -m src.ui
+   ```
+
 ## Architecture notes
 
 I chose [diffusers](https://github.com/huggingface/diffusers) over [ComfyUI](https://github.com/comfyanonymous/ComfyUI) for this repo for one specific reason: diffusers is a *library*, ComfyUI is an *application*. For a portfolio piece intended to demonstrate ML-engineering literacy, the library route lets me show that I understand the pipeline mechanics (load order, dtype boundaries, offload hooks) rather than how to wire up a node graph. ComfyUI is the right tool if you want a fast iteration loop on prompts and LoRA stacks; it's the wrong tool for showing you can read the diffusers source.
@@ -118,7 +124,8 @@ flux-local-inference/
 ├── src/
 │   ├── config.py                    InferenceConfig — Turing-aware defaults with rationale
 │   ├── pipeline.py                  FluxGenerator — load order documented in comments
-│   └── generate.py                  CLI entry point (python -m src.generate)
+│   ├── generate.py                  CLI entry point (python -m src.generate)
+│   └── ui.py                        Gradio web UI (python -m src.ui)
 └── tests/                           mock-based; no real model loads
 ```
 

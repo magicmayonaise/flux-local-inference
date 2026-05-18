@@ -119,8 +119,12 @@ class FluxGenerator:
 
         return result.images[0]
 
-    def generate_with_metrics(self, prompt: str) -> tuple[Image.Image, dict]:
-        """Time + peak VRAM around a single generate(). Used by benchmark.py.
+    def generate_with_metrics(
+        self, prompt: str, seed: Optional[int] = None
+    ) -> tuple[Image.Image, dict]:
+        """Time + peak VRAM around a single generate(). Used by benchmark.py
+        and src.ui. `seed` is forwarded to generate(); None falls back to the
+        config default.
 
         We reset_peak_memory_stats before and read max_memory_allocated after.
         This is the right call on Turing because cached but unallocated blocks
@@ -129,7 +133,7 @@ class FluxGenerator:
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
         t0 = time.perf_counter()
-        image = self.generate(prompt)
+        image = self.generate(prompt, seed=seed)
         elapsed = time.perf_counter() - t0
         peak_vram_gb = torch.cuda.max_memory_allocated() / (1024**3)
         return image, {"elapsed_s": elapsed, "peak_vram_gb": peak_vram_gb}
